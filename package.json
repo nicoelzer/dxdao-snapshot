@@ -1,0 +1,30 @@
+{
+  "name": "dxdao-snapshot",
+  "version": "0.1.0",
+  "description": "Scripts to generate snapshotDBs of DXdao",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AugustoL/dxdao-snapshot.git"
+  },
+  "author": "Augusto Lemble <augustolemble@pm.me>",
+  "license": "AGPL 3.0",
+  "bugs": {
+    "url": "https://github.com/AugustoL/dxdao-snapshot/issues"
+  },
+  "homepage": "https://github.com/AugustoL/dxdao-snapshot#readme",
+  "devDependencies": {
+    "@openzeppelin/cli": "^2.8.2"
+  },
+  "dependencies": {
+    "@openzeppelin/upgrades": "^2.8.0",
+    "dotenv": "^8.2.0",
+    "etherscan-api": "^10.0.5",
+    "truffle": "^5.1.26",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "web3": "^1.2.7"
+  }
+}
