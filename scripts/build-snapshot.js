@@ -1,0 +1,223 @@
+const fs = require('fs');
+const Web3 = require('web3');
+const { Contracts, ZWeb3 } = require('@openzeppelin/upgrades');
+const HDWalletProvider = require('truffle-hdwallet-provider')
+const args = process.argv;
+require('dotenv').config();
+
+// Get network to use from arguments
+let network, mnemonic, httpProviderUrl, web3, reset=false, slow=false;
+for (var i = 0; i < args.length; i++) {
+  if (args[i] == '--network')
+    network = args[i+1];
+  if (args[i] == '--reset')
+    reset = true;
+  if (args[i] == '--slow')
+    slow = true;
+}
+if (!network) throw('Not network selected, --network parameter missing');
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, (reset || slow) ? ms : 0));
+
+mnemonic = process.env.KEY_MNEMONIC;
+httpProviderUrl = 'http://localhost:8545';
+const EtherscanAPIToken = process.env.KEY_ETHERSCAN
+
+// Get development keys
+if (network != 'develop') {
+  infuraApiKey = process.env.KEY_INFURA_API_KEY;
+  httpProviderUrl = `https://${network}.infura.io/v3/${infuraApiKey }`
+} 
+
+console.log('Running information script on', httpProviderUrl)
+const provider = new HDWalletProvider(mnemonic, new Web3.providers.HttpProvider(httpProviderUrl), 0, 10);
+web3 = new Web3(provider)
+ZWeb3.initialize(web3.currentProvider);
+
+const DxController = Contracts.getFromLocal('DxController');
+const DxAvatar = Contracts.getFromLocal('DxAvatar');
+const DxReputation = Contracts.getFromLocal('DxReputation');
+const DxToken = Contracts.getFromLocal('DxToken');
+const DxLockMgnForRep = Contracts.getFromLocal('DxLockMgnForRep');
+const DxGenAuction4Rep = Contracts.getFromLocal('DxGenAuction4Rep');
+const DxLockEth4Rep = Contracts.getFromLocal('DxLockEth4Rep');
+const DxLockWhitelisted4Rep = Contracts.getFromLocal('DxLockWhitelisted4Rep');
+const DutchXScheme = Contracts.getFromLocal('DutchXScheme');
+const SchemeRegistrar = Contracts.getFromLocal('SchemeRegistrar');
+const ContributionReward = Contracts.getFromLocal('ContributionReward');
+const EnsPublicResolverScheme = Contracts.getFromLocal('EnsPublicResolverScheme');
+const EnsRegistrarScheme = Contracts.getFromLocal('EnsRegistrarScheme');
+const EnsRegistryScheme = Contracts.getFromLocal('EnsRegistryScheme');
+
+const contracts = require('../contracts.json');
+const dxController = DxController.at(contracts.DxController);
+const dxAvatar = DxAvatar.at(contracts.DxAvatar);
+const dxReputation = DxReputation.at(contracts.DxReputation);
+const dxToken = DxToken.at(contracts.DxToken);
+
+let schemes = {};
+schemes[contracts.schemes.DxLockMgnForRep] = DxLockMgnForRep.at(contracts.schemes.DxLockMgnForRep);  
+schemes[contracts.schemes.DxGenAuction4Rep] = DxGenAuction4Rep.at(contracts.schemes.DxGenAuction4Rep);  
+schemes[contracts.schemes.DxLockEth4Rep] = DxLockEth4Rep.at(contracts.schemes.DxLockEth4Rep);  
+schemes[contracts.schemes.DxLockWhitelisted4Rep] = DxLockWhitelisted4Rep.at(contracts.schemes.DxLockWhitelisted4Rep);  
+schemes[contracts.schemes.DutchXScheme] = DutchXScheme.at(contracts.schemes.DutchXScheme);  
+schemes[contracts.schemes.SchemeRegistrar] = SchemeRegistrar.at(contracts.schemes.SchemeRegistrar);  
+schemes[contracts.schemes.ContributionReward] = ContributionReward.at(contracts.schemes.ContributionReward);  
+schemes[contracts.schemes.EnsPublicResolverScheme] = EnsPublicResolverScheme.at(contracts.schemes.EnsPublicResolverScheme);  
+schemes[contracts.schemes.EnsRegistrarScheme] = EnsRegistrarScheme.at(contracts.schemes.EnsRegistrarScheme);  
+schemes[contracts.schemes.EnsRegistryScheme] = EnsRegistryScheme.at(contracts.schemes.EnsRegistryScheme);  
+
+// Fecth existent snapshot
+let DXdaoSnapshot;
+if (fs.existsSync('./DXdaoSnapshot.json') && !reset)
+  DXdaoSnapshot = JSON.parse(fs.readFileSync('DXdaoSnapshot.json', 'utf-8'));
+
+async function main() {
+  
+  const fromBlock = DXdaoSnapshot.fromBlock;
+  const toBlock = DXdaoSnapshot.toBlock;
+  
+  console.log('Generating snapshot from block', fromBlock, 'to block', toBlock);
+  
+  let history = {
+    txs: [],
+    internalTxs: [],
+    events: []
+  };
+  
+  history.txs = history.txs.concat(DXdaoSnapshot.controller.txs);
+  history.txs = history.txs.concat(DXdaoSnapshot.avatar.txs);
+  history.txs = history.txs.concat(DXdaoSnapshot.reputation.txs);
+  history.txs = history.txs.concat(DXdaoSnapshot.token.txs);
+  
+  history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.controller.internalTxs);
+  history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.avatar.internalTxs);
+  history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.reputation.internalTxs);
+  history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.token.internalTxs);
+  
+  history.events = history.events.concat(DXdaoSnapshot.controller.events);
+  history.events = history.events.concat(DXdaoSnapshot.avatar.events);
+  history.events = history.events.concat(DXdaoSnapshot.reputation.events);
+  history.events = history.events.concat(DXdaoSnapshot.token.events);
+  
+  for (var schemeAddress in DXdaoSnapshot.schemes) {
+    if (DXdaoSnapshot.schemes.hasOwnProperty(schemeAddress)) {
+      history.txs = history.txs.concat(DXdaoSnapshot.schemes[schemeAddress].txs);
+      history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.schemes[schemeAddress].internalTxs);
+      history.events = history.events.concat(DXdaoSnapshot.schemes[schemeAddress].events);
+    }
+  }
+  
+  console.log(history.txs.length, history.internalTxs.length, history.events.length);
+  
+  ////////////////////// Get all contract events //////////////////////
+  // 
+  // DXdaoSnapshot.controller.events = DXdaoSnapshot.controller.events.concat( await dxController.getPastEvents(
+  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
+  // ));
+  // DXdaoSnapshot.avatar.events = DXdaoSnapshot.avatar.events.concat( await dxAvatar.getPastEvents(
+  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
+  // ));
+  // DXdaoSnapshot.token.events = DXdaoSnapshot.token.events.concat( await dxToken.getPastEvents(
+  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
+  // ));
+  // DXdaoSnapshot.reputation.events = DXdaoSnapshot.reputation.events.concat( await dxReputation.getPastEvents(
+  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
+  // ));
+  // 
+  // const majorSchemeEvents = DXdaoSnapshot.controller.events.filter((_event) => {
+  //   return (_event.event == 'RegisterScheme' || _event.event == 'UnregisterScheme')
+  // });
+  // 
+  // let registeredSchemes = [];
+  // let schemesActivePeriods = [];
+  // let schemeAddedBlock = {};
+  // 
+  // console.log('Registered scheme in constructior', web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from))
+  // registeredSchemes.push(web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from));
+  // schemeAddedBlock[web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from)] = DXdaoSnapshot.controller.txs[0].blockNumber;
+  // 
+  // majorSchemeEvents.forEach((schemeEvent) => {
+  //   if (schemeEvent.event == 'RegisterScheme') {
+  //     console.log('Registered scheme', schemeEvent.returnValues._scheme)
+  //     registeredSchemes.push(schemeEvent.returnValues._scheme);
+  //     schemeAddedBlock[schemeEvent.returnValues._scheme] = schemeEvent.blockNumber;
+  //   } else if (schemeEvent.event == 'UnregisterScheme'){
+  //     if (registeredSchemes.indexOf(schemeEvent.returnValues._scheme) < 0) {
+  //       console.error('Unregister inexistent scheme', schemeEvent.returnValues._scheme) 
+  //     } else {
+  //       console.log('Unregister scheme', schemeEvent.returnValues._scheme)    
+  //       schemesActivePeriods.push({
+  //         address: schemeEvent.returnValues._scheme,
+  //         fromBlock: schemeAddedBlock[schemeEvent.returnValues._scheme],
+  //         toBlock: schemeEvent.blockNumber
+  //       })
+  //       delete schemeAddedBlock[schemeEvent.returnValues._scheme];
+  //       registeredSchemes.splice(registeredSchemes.indexOf(schemeEvent.returnValues._scheme), 1);
+  //     }
+  //   }
+  // });
+  // 
+  // console.log('Active schemes', registeredSchemes);
+  // for (var i = 0; i < registeredSchemes.length; i++) {
+  //   schemesActivePeriods.push({
+  //     address: registeredSchemes[i],
+  //     fromBlock: schemeAddedBlock[registeredSchemes[i]],
+  //     toBlock: 0
+  //   })
+  //   delete schemeAddedBlock[registeredSchemes[i]];
+  // }
+  // 
+  // // TO DO: check schemeAddedBlock is empty object
+  // 
+  // for (var i = 0; i < registeredSchemes.length; i++) {
+  //   const scheme = await dxController.methods.schemes(registeredSchemes[i]).call();
+  // 
+  //   let activePeriods = schemesActivePeriods.filter((period) => {return period.address == registeredSchemes[i]});
+  // 
+  //   let permissions = {
+  //     registered: (scheme.permissions == '0x0000001f'),
+  //     manageSchemes: (scheme.permissions == '0x0000001f'),
+  //     upgradeController: (scheme.permissions == '0x0000001f'),
+  //     delegateCall: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011'),
+  //     globalConstraint: (scheme.permissions == '0x0000001f'),
+  //     mintRep: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011') || (scheme.permissions == '0x00000001')
+  //   }
+  // 
+  //   // TO DO: Add analysis of global constrains of each scheme
+  // 
+  //   console.log('Getting events for scheme', registeredSchemes[i])
+  //   const schemeEvents = await schemes[registeredSchemes[i]]
+  //     .getPastEvents('allEvents', { 
+  //       fromBlock: activePeriods[0].fromBlock, 
+  //       toBlock: toBlock
+  //     })
+  // 
+  //   let activeProposals = [];    
+  //   schemeEvents.forEach((schemeEvent) => {
+  //     if (schemeEvent.event == 'NewProposal') {
+  //       console.error('Adding proposal', schemeEvent.returnValues._proposalId) 
+  //       activeProposals.push(schemeEvent.returnValues._proposalId);
+  //     } else if ((schemeEvent.event == 'ExecuteProposal') || (schemeEvent.event == 'CancelProposal')) {
+  //       if (activeProposals.indexOf(schemeEvent.returnValues._proposalId) < 0) {
+  //         console.error('Removing inexistent proposal', schemeEvent.returnValues._proposalId) 
+  //       } else {
+  //         console.error('Removing proposal', schemeEvent.returnValues._proposalId) 
+  //         activeProposals.splice(activeProposals.indexOf(schemeEvent.returnValues._proposalId), 1);
+  //       }
+  //     }
+  //   });
+  // 
+  //   DXdaoSnapshot.schemes[registeredSchemes[i]] = { 
+  //     paramsHash: scheme.paramsHash,
+  //     permissions: permissions,
+  //     activePeriods: activePeriods,
+  //     events: schemeEvents,
+  //     activeProposals: activeProposals
+  //   };
+  // };
+  
+  // fs.writeFileSync('DXdaoSnapshot.json', JSON.stringify(DXdaoSnapshot, null, 2), {encoding:'utf8',flag:'w'});
+} 
+
+Promise.all([main()]).then(process.exit);

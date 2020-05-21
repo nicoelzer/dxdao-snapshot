@@ -49,7 +49,7 @@ module.exports = {
   build: {},	
   compilers: {	
     solc: {	
-      version: '0.5.4',
+      version: '^0.5.13',
       settings: {
         evmVersion: 'constantinople',
       }

@@ -4,7 +4,9 @@
   "description": "Scripts to generate snapshotDBs of DXdao",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node scripts/build-transactions.js --network mainnet",
+    "reset": "node scripts/build-transactions.js --network mainnet --reset",
+    "compile": "npx truffle compile"
   },
   "repository": {
     "type": "git",
@@ -20,9 +22,11 @@
     "@openzeppelin/cli": "^2.8.2"
   },
   "dependencies": {
+    "@maticnetwork/eth-decoder": "0.0.2",
     "@openzeppelin/upgrades": "^2.8.0",
     "dotenv": "^8.2.0",
     "etherscan-api": "^10.0.5",
+    "lodash": "^4.17.15",
     "truffle": "^5.1.26",
     "truffle-hdwallet-provider": "^1.0.17",
     "web3": "^1.2.7"
