@@ -1,7 +1,8 @@
 const fs = require('fs');
 const Web3 = require('web3');
 const { Contracts, ZWeb3 } = require('@openzeppelin/upgrades');
-const HDWalletProvider = require('truffle-hdwallet-provider')
+const HDWalletProvider = require('truffle-hdwallet-provider');
+var _ = require('lodash');
 const args = process.argv;
 require('dotenv').config();
 
@@ -107,115 +108,143 @@ async function main() {
       history.events = history.events.concat(DXdaoSnapshot.schemes[schemeAddress].events);
     }
   }
+  history.txs = _.uniqBy(history.txs, 'hash');
+  history.txs = _.sortBy(history.txs, 'transactionIndex');
+  history.txs = _.sortBy(history.txs, 'blockNumber');
   
-  console.log(history.txs.length, history.internalTxs.length, history.events.length);
+  history.internalTxs = _.uniqBy(history.internalTxs, 'transactionHash');
+  history.internalTxs = _.sortBy(history.internalTxs, 'transactionIndex');
+  history.internalTxs = _.sortBy(history.internalTxs, 'blockNumber');
   
-  ////////////////////// Get all contract events //////////////////////
-  // 
-  // DXdaoSnapshot.controller.events = DXdaoSnapshot.controller.events.concat( await dxController.getPastEvents(
-  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
-  // ));
-  // DXdaoSnapshot.avatar.events = DXdaoSnapshot.avatar.events.concat( await dxAvatar.getPastEvents(
-  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
-  // ));
-  // DXdaoSnapshot.token.events = DXdaoSnapshot.token.events.concat( await dxToken.getPastEvents(
-  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
-  // ));
-  // DXdaoSnapshot.reputation.events = DXdaoSnapshot.reputation.events.concat( await dxReputation.getPastEvents(
-  //   'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
-  // ));
-  // 
-  // const majorSchemeEvents = DXdaoSnapshot.controller.events.filter((_event) => {
-  //   return (_event.event == 'RegisterScheme' || _event.event == 'UnregisterScheme')
-  // });
-  // 
-  // let registeredSchemes = [];
-  // let schemesActivePeriods = [];
-  // let schemeAddedBlock = {};
-  // 
-  // console.log('Registered scheme in constructior', web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from))
-  // registeredSchemes.push(web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from));
-  // schemeAddedBlock[web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from)] = DXdaoSnapshot.controller.txs[0].blockNumber;
-  // 
-  // majorSchemeEvents.forEach((schemeEvent) => {
-  //   if (schemeEvent.event == 'RegisterScheme') {
-  //     console.log('Registered scheme', schemeEvent.returnValues._scheme)
-  //     registeredSchemes.push(schemeEvent.returnValues._scheme);
-  //     schemeAddedBlock[schemeEvent.returnValues._scheme] = schemeEvent.blockNumber;
-  //   } else if (schemeEvent.event == 'UnregisterScheme'){
-  //     if (registeredSchemes.indexOf(schemeEvent.returnValues._scheme) < 0) {
-  //       console.error('Unregister inexistent scheme', schemeEvent.returnValues._scheme) 
-  //     } else {
-  //       console.log('Unregister scheme', schemeEvent.returnValues._scheme)    
-  //       schemesActivePeriods.push({
-  //         address: schemeEvent.returnValues._scheme,
-  //         fromBlock: schemeAddedBlock[schemeEvent.returnValues._scheme],
-  //         toBlock: schemeEvent.blockNumber
-  //       })
-  //       delete schemeAddedBlock[schemeEvent.returnValues._scheme];
-  //       registeredSchemes.splice(registeredSchemes.indexOf(schemeEvent.returnValues._scheme), 1);
-  //     }
-  //   }
-  // });
-  // 
-  // console.log('Active schemes', registeredSchemes);
-  // for (var i = 0; i < registeredSchemes.length; i++) {
-  //   schemesActivePeriods.push({
-  //     address: registeredSchemes[i],
-  //     fromBlock: schemeAddedBlock[registeredSchemes[i]],
-  //     toBlock: 0
-  //   })
-  //   delete schemeAddedBlock[registeredSchemes[i]];
-  // }
-  // 
-  // // TO DO: check schemeAddedBlock is empty object
-  // 
-  // for (var i = 0; i < registeredSchemes.length; i++) {
-  //   const scheme = await dxController.methods.schemes(registeredSchemes[i]).call();
-  // 
-  //   let activePeriods = schemesActivePeriods.filter((period) => {return period.address == registeredSchemes[i]});
-  // 
-  //   let permissions = {
-  //     registered: (scheme.permissions == '0x0000001f'),
-  //     manageSchemes: (scheme.permissions == '0x0000001f'),
-  //     upgradeController: (scheme.permissions == '0x0000001f'),
-  //     delegateCall: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011'),
-  //     globalConstraint: (scheme.permissions == '0x0000001f'),
-  //     mintRep: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011') || (scheme.permissions == '0x00000001')
-  //   }
-  // 
-  //   // TO DO: Add analysis of global constrains of each scheme
-  // 
-  //   console.log('Getting events for scheme', registeredSchemes[i])
-  //   const schemeEvents = await schemes[registeredSchemes[i]]
-  //     .getPastEvents('allEvents', { 
-  //       fromBlock: activePeriods[0].fromBlock, 
-  //       toBlock: toBlock
-  //     })
-  // 
-  //   let activeProposals = [];    
-  //   schemeEvents.forEach((schemeEvent) => {
-  //     if (schemeEvent.event == 'NewProposal') {
-  //       console.error('Adding proposal', schemeEvent.returnValues._proposalId) 
-  //       activeProposals.push(schemeEvent.returnValues._proposalId);
-  //     } else if ((schemeEvent.event == 'ExecuteProposal') || (schemeEvent.event == 'CancelProposal')) {
-  //       if (activeProposals.indexOf(schemeEvent.returnValues._proposalId) < 0) {
-  //         console.error('Removing inexistent proposal', schemeEvent.returnValues._proposalId) 
-  //       } else {
-  //         console.error('Removing proposal', schemeEvent.returnValues._proposalId) 
-  //         activeProposals.splice(activeProposals.indexOf(schemeEvent.returnValues._proposalId), 1);
-  //       }
-  //     }
-  //   });
-  // 
-  //   DXdaoSnapshot.schemes[registeredSchemes[i]] = { 
-  //     paramsHash: scheme.paramsHash,
-  //     permissions: permissions,
-  //     activePeriods: activePeriods,
-  //     events: schemeEvents,
-  //     activeProposals: activeProposals
-  //   };
-  // };
+  history.events = _.sortBy(history.events, 'logIndex');
+  history.events = _.sortBy(history.events, 'blockNumber');
+
+  console.log('Total history txs:,', history.txs.length);
+  console.log('Total history internal:,', history.internalTxs.length);
+  console.log('Total history events:,', history.events.length);
+  
+  let registeredSchemes = [];
+  let schemesActivePeriods = [];
+  let schemeAddedBlock = {};
+  
+  console.log('Registered scheme in controller constructor', web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from))
+  registeredSchemes.push(web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from));
+  schemeAddedBlock[web3.utils.toChecksumAddress(DXdaoSnapshot.controller.txs[0].from)] = DXdaoSnapshot.controller.txs[0].blockNumber;
+  
+  history.events.forEach((historyEvent) => {
+    if (historyEvent.event == 'RegisterScheme') {
+      console.log('Registered scheme', historyEvent.returnValues._scheme)
+      registeredSchemes.push(historyEvent.returnValues._scheme);
+      schemeAddedBlock[historyEvent.returnValues._scheme] = historyEvent.blockNumber;
+    } else if (historyEvent.event == 'UnregisterScheme'){
+      if (registeredSchemes.indexOf(historyEvent.returnValues._scheme) < 0) {
+        console.error('Unregister inexistent scheme', historyEvent.returnValues._scheme) 
+      } else {
+        console.log('Unregister scheme', historyEvent.returnValues._scheme)    
+        schemesActivePeriods.push({
+          address: historyEvent.returnValues._scheme,
+          fromBlock: schemeAddedBlock[historyEvent.returnValues._scheme],
+          toBlock: historyEvent.blockNumber
+        })
+        delete schemeAddedBlock[historyEvent.returnValues._scheme];
+        registeredSchemes.splice(registeredSchemes.indexOf(historyEvent.returnValues._scheme), 1);
+      }
+    }
+  });
+  
+  console.log('Active schemes right now:\n', registeredSchemes);
+
+  for (var i = 0; i < registeredSchemes.length; i++) {
+    schemesActivePeriods.push({
+      address: registeredSchemes[i],
+      fromBlock: schemeAddedBlock[registeredSchemes[i]],
+      toBlock: 0
+    })
+    delete schemeAddedBlock[registeredSchemes[i]];
+  }
+  
+  // TO DO: check schemeAddedBlock is empty object
+  
+  let schemesInfo = {};
+  for (var i = 0; i < registeredSchemes.length; i++) {
+    const scheme = await dxController.methods.schemes(registeredSchemes[i]).call();
+  
+    let activePeriods = schemesActivePeriods.filter((period) => {return period.address == registeredSchemes[i]});
+  
+    let permissions = {
+      registered: (scheme.permissions == '0x0000001f'),
+      manageSchemes: (scheme.permissions == '0x0000001f'),
+      upgradeController: (scheme.permissions == '0x0000001f'),
+      delegateCall: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011'),
+      globalConstraint: (scheme.permissions == '0x0000001f'),
+      mintRep: (scheme.permissions == '0x0000001f') || (scheme.permissions == '0x00000011') || (scheme.permissions == '0x00000001')
+    }
+  
+    // TO DO: Add analysis of global constrains of each scheme
+  
+    schemesInfo[registeredSchemes[i]] = { 
+      name: schemes[registeredSchemes[i]].schema.contractName,
+      paramsHash: scheme.paramsHash,
+      permissions: permissions,
+      activePeriods: activePeriods,
+      activeProposals: []
+    };
+  };
+  
+  const createProposalEvents = [
+    'NewContributionProposal',
+    'NewCallProposal',
+    'NewSchemeProposal',
+    'RemoveSchemeProposal'
+  ]
+  
+  const endProposalEvents = [
+    'ExecuteProposal',
+    'ProposalDeleted',
+    'ProposalExecuted',
+    'ProposalExecutedByVotingMachine',
+    'CancelProposal'
+  ]
+  
+  let activeProposals = [];
+  history.events.forEach((historyEvent) => {
+    if (createProposalEvents.indexOf(historyEvent.event) >= 0) {
+      activeProposals.push({
+        id: historyEvent.returnValues._proposalId,
+        contractName: schemes[historyEvent.address].schema.contractName,
+        event: historyEvent,
+        blockNumber: historyEvent.blockNumber,
+        url: 'https://alchemy.daostack.io/dao/'+dxAvatar.address+'/proposal/'+historyEvent.returnValues._proposalId
+      });
+      schemesInfo[historyEvent.address].activeProposals.push({
+        id: historyEvent.returnValues._proposalId,
+        contractName: schemes[historyEvent.address].schema.contractName,
+        event: historyEvent,
+        blockNumber: historyEvent.blockNumber,
+        url: 'https://alchemy.daostack.io/dao/'+dxAvatar.address+'/proposal/'+historyEvent.returnValues._proposalId
+      });
+    } else if (endProposalEvents.indexOf(historyEvent.event) >= 0) {
+      _.remove(activeProposals, function(p) {
+        if (p.id == historyEvent.returnValues._proposalId)
+          _.remove(schemesInfo[historyEvent.address].activeProposals, (sp) => sp.id == p.id)
+        return p.id == historyEvent.returnValues._proposalId
+      });
+    }
+  });
+
+  activeProposals = _.sortBy(activeProposals, 'blockNumber');
+  // console.log('Schemes info:\n', schemesInfo);
+  
+  console.log('Total active proposals:\n', activeProposals.length);
+  for (var schemeAddress in schemesInfo) {
+    if (schemesInfo.hasOwnProperty(schemeAddress) && schemesInfo[schemeAddress].activeProposals.length > 0) {
+      console.log('Scheme',schemesInfo[schemeAddress].name, 'has ', schemesInfo[schemeAddress].activeProposals.length, 'active proposals');
+      for (var i = 0; i < schemesInfo[schemeAddress].activeProposals.length; i++) {
+        console.log('DAOstack URL:', schemesInfo[schemeAddress].activeProposals[i].url)
+      }
+    }
+  }
+
   
   // fs.writeFileSync('DXdaoSnapshot.json', JSON.stringify(DXdaoSnapshot, null, 2), {encoding:'utf8',flag:'w'});
 } 

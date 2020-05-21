@@ -1,7 +1,7 @@
 const fs = require('fs');
 const Web3 = require('web3');
 const { Contracts, ZWeb3 } = require('@openzeppelin/upgrades');
-const HDWalletProvider = require('truffle-hdwallet-provider')
+const HDWalletProvider = require('truffle-hdwallet-provider');
 const args = process.argv;
 require('dotenv').config();
 const http = require('http');
