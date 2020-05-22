@@ -3,18 +3,18 @@
 ## Commands
 
 Configure your ENV file, specify the network you want to use with the `--network` parameter and use the `--reset` parameter if you want to not use existent snapshot and restart it.
-Use the `--fast` parameter if you dont want between requests, disabled by default to avoid reaching free limit rape form APIs used.
-Use `--toBlock` with the maximun block you want to analyze parameter you want to use, using latest provided by the web3 provider by default. 
+Use the `--fast` parameter if you don't want between requests, disabled by default to avoid reaching free limit rape form APIs used.
+Use `--toBlock` with the maximum block you want to analyze parameter you want to use, using latest provided by the web3 provider by default. 
 
 ### Get Transactions
 ```
-node scripts/get-transactions.js --network mainnet --reset
+node scripts/get-transactions.js --network mainnet
 ```
 
 ### Build Snapshopt
 
 ```
-node scripts/build-snapshopt.js --network mainnet --reset
+node scripts/build-snapshopt.js --network mainnet
 ```
 
 ## Snapshot Format

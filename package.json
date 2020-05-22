@@ -4,8 +4,8 @@
   "description": "Scripts to generate snapshotDBs of DXdao",
   "main": "index.js",
   "scripts": {
-    "start": "node scripts/build-transactions.js --network mainnet",
-    "reset": "node scripts/build-transactions.js --network mainnet --reset",
+    "transactions": "$ node scripts/get-transactions.js --network mainnet --fast",
+    "snapshot": "node scripts/build-snapshot.js --network mainnet",
     "compile": "npx truffle compile"
   },
   "repository": {
