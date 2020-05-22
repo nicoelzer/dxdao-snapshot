@@ -116,6 +116,23 @@ async function main() {
   history.internalTxs = _.sortBy(history.internalTxs, 'transactionIndex');
   history.internalTxs = _.sortBy(history.internalTxs, 'blockNumber');
   
+  const createProposalEvents = [
+    'NewContributionProposal',
+    'NewCallProposal',
+    'NewSchemeProposal',
+    'RemoveSchemeProposal'
+  ];
+  const endProposalEvents = [
+    'ExecuteProposal',
+    'ProposalDeleted',
+    'ProposalExecuted',
+    'ProposalExecutedByVotingMachine',
+    'CancelProposal'
+  ];
+  
+  _.remove(history.events, (historyEvent) => {
+    return historyEvent.returnValues._avatar && (historyEvent.returnValues._avatar != dxAvatar.address)
+  });
   history.events = _.sortBy(history.events, 'logIndex');
   history.events = _.sortBy(history.events, 'blockNumber');
 
@@ -191,21 +208,6 @@ async function main() {
     };
   };
   
-  const createProposalEvents = [
-    'NewContributionProposal',
-    'NewCallProposal',
-    'NewSchemeProposal',
-    'RemoveSchemeProposal'
-  ]
-  
-  const endProposalEvents = [
-    'ExecuteProposal',
-    'ProposalDeleted',
-    'ProposalExecuted',
-    'ProposalExecutedByVotingMachine',
-    'CancelProposal'
-  ]
-  
   let activeProposals = [];
   history.events.forEach((historyEvent) => {
     if (createProposalEvents.indexOf(historyEvent.event) >= 0) {
@@ -239,12 +241,8 @@ async function main() {
   for (var schemeAddress in schemesInfo) {
     if (schemesInfo.hasOwnProperty(schemeAddress) && schemesInfo[schemeAddress].activeProposals.length > 0) {
       console.log('Scheme',schemesInfo[schemeAddress].name, 'has ', schemesInfo[schemeAddress].activeProposals.length, 'active proposals');
-      for (var i = 0; i < schemesInfo[schemeAddress].activeProposals.length; i++) {
-        console.log('DAOstack URL:', schemesInfo[schemeAddress].activeProposals[i].url)
-      }
     }
   }
-
   
   // fs.writeFileSync('DXdaoSnapshot.json', JSON.stringify(DXdaoSnapshot, null, 2), {encoding:'utf8',flag:'w'});
 } 
