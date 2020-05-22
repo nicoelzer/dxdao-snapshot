@@ -63,28 +63,46 @@ node scripts/build-snapshopt.js --network mainnet
       gasUsed: "Number: The amount of gas used by this specific transaction alone."
       logs: "Array: Array of log objects, which this transaction generated."
     } ... ],
+    events: [ {
+      event: "String: The event name."
+      signature: "String|Null: The event signature, null if it’s an anonymous event."
+      address: "String: Address this event originated from."
+      returnValues: "Object: The return values coming from the event, e.g. {myVar: 1, myVar2: '0x234...'}."
+      logIndex: "Number: Integer of the event index position in the block."
+      transactionIndex: "Number: Integer of the transaction’s index position the event was created in."
+      transactionHash: " Bytes - String: Hash of the transaction this event was created in."
+      blockHash: "Bytes - String: Hash of the block this event was created in. null when it’s still pending."
+      blockNumber: "Number: The block number this log was created in. null when still pending."
+      raw.data: "String: The data containing non-indexed log parameter."
+      raw.topics: "Array: An array with max 4 32 Byte topics, topic 1-3 contains indexed parameters of the event."
+    } ... ]
   },
   avatar: {
     txs: [ Tx ],
     internalTxs: [ TxReceipt ],
+    events: [ Event ]
   },
   reputation: {
     txs: [ Tx ],
     internalTxs: [ TxReceipt ],
+    events: [ Event ]
   },
   token: {
     txs: [ Tx ],
     internalTxs: [ TxReceipt ],
+    events: [ Event ]
   },
   schemes: {
     scheme1: {
       txs: [ Tx ],
       internalTxs: [ TxReceipt ],
+      events: [ Event ]
     },
     ...
     schemeX: {
       txs: [ Tx ],
       internalTxs: [ TxReceipt ],
+      events: [ Event ]
     }
   }
 }
@@ -96,20 +114,33 @@ node scripts/build-snapshopt.js --network mainnet
 <img src="assets/arc-architecture.jpeg" width="100%" height="auto"/>
 
 Controller: https://etherscan.io/address/0x9f828ac3baa9003e8a4e0b24bcae7b027b6740b0
+
 Avatar: https://etherscan.io/address/0x519b70055af55a007110b4ff99b0ea33071c720a
+
 Reputation: https://etherscan.io/address/0x7a927a93f221976aae26d5d077477307170f0b7c
+
 Token: https://etherscan.io/address/0x643b14f6ea235668278da5974930105852f2b7c4
 
 ## Schemes 
 
 Creator account (Not active): https://etherscan.io/address/0x0a530100affb0a06edd2ed74e335afc50624f345
+
 DxLockMgnForRep: https://etherscan.io/address/0x2E6FaE82c77e1D6433CCaAaF90281523b99D0D0a
+
 DxGenAuction4Rep: https://etherscan.io/address/0x4D8DB062dEFa0254d00a44aA1602C30594e47B12
+
 DxLockEth4Rep: https://etherscan.io/address/0x4564BFe303900178578769b2D76B1a13533E5fd5
+
 DxLockWhitelisted4Rep: https://etherscan.io/address/0x1cb5B2BB4030220ad5417229A7A1E3c373cDD2F6
+
 DutchX (GenericScheme1): https://etherscan.io/address/0x199719EE4d5DCF174B80b80afa1FE4a8e5b0E3A0
+
 SchemeRegistrar: https://etherscan.io/address/0xf050F3C6772Ff35eB174A6900833243fcCD0261F
+
 ContributionReward: https://etherscan.io/address/0x08cC7BBa91b849156e9c44DEd51896B38400f55B
+
 EnsPublicResolver (GenericScheme2): https://etherscan.io/address/0x9A543aeF934c21Da5814785E38f9A7892D3CDE6E
+
 EnsRegistrar (GenericScheme3): https://etherscan.io/address/0x973ce4e81BdC3bD39f46038f3AaA928B04558b08
+
 EnsRegistry (GenericScheme4): https://etherscan.io/address/0x9CEA0DD05C4344A769B2F4C2f8890EDa8a700d64
