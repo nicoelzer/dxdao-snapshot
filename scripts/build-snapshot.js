@@ -140,7 +140,7 @@ async function main() {
   history.events = _.sortBy(history.events, 'blockNumber');
 
   console.log('Total history txs:,', history.txs.length);
-  console.log('Total history internal:,', history.internalTxs.length);
+  console.log('Total history internal:', history.internalTxs.length);
   console.log('Total history events:', history.events.length);
   
   let registeredSchemes = [];
@@ -266,15 +266,32 @@ async function main() {
         proposals[proposalId].genesisProtocolData.winningVote
       ];
       if (schemes[proposals[proposalId].scheme].methods.organizationsProposals){
-        proposals[proposalId].schemeData = removeNumberKeys(
+        proposals[proposalId].proposalData = removeNumberKeys(
           await schemes[proposals[proposalId].scheme].methods
             .organizationsProposals(dxAvatar.address, proposalId).call()
         );
       } else if (schemes[proposals[proposalId].scheme].methods.organizationProposals) {
-        proposals[proposalId].schemeData = removeNumberKeys(
+        proposals[proposalId].proposalData = removeNumberKeys(
           await schemes[proposals[proposalId].scheme].methods
           .organizationProposals(proposalId).call()
         );
+      }
+      if (schemes[proposals[proposalId].scheme].methods.contractToCall){
+        proposals[proposalId].contractToCall = 
+          await schemes[proposals[proposalId].scheme].methods.contractToCall().call();
+      }
+      if (proposals[proposalId].proposalData.callData) {
+        proposals[proposalId].toSimulate = {
+          to: dxController.address,
+          from: proposals[proposalId].scheme,
+          data: await dxController.methods
+          .genericCall(
+            proposals[proposalId].contractToCall,
+            proposals[proposalId].proposalData.callData,
+            dxAvatar.address,
+            proposals[proposalId].proposalData.value
+          ).encodeABI()
+        }
       }
     }
   }
@@ -284,6 +301,15 @@ async function main() {
   for (var schemeAddress in schemesInfo) {
     if (schemesInfo.hasOwnProperty(schemeAddress) && schemesInfo[schemeAddress].activeProposals.length > 0) {
       console.log('Scheme',schemesInfo[schemeAddress].name, 'has ', schemesInfo[schemeAddress].activeProposals.length, 'active proposals');
+    }
+  }
+  
+  for (var proposalId in proposals) {
+    if (proposals.hasOwnProperty(proposalId)
+    && (proposals[proposalId].genesisProtocolData.state != 'ExpiredInQueue')
+    && (proposals[proposalId].genesisProtocolData.state != 'Executed')
+    && (proposals[proposalId].toSimulate)) {
+      console.log('Generic proposal', proposalId, 'in',schemesInfo[proposals[proposalId].scheme].name,'active to simulate \n', proposals[proposalId].toSimulate);
     }
   }
   
