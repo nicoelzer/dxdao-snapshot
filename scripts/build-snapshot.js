@@ -39,6 +39,8 @@ const DxController = Contracts.getFromLocal('DxController');
 const DxAvatar = Contracts.getFromLocal('DxAvatar');
 const DxReputation = Contracts.getFromLocal('DxReputation');
 const DxToken = Contracts.getFromLocal('DxToken');
+const GenesisProtocol = Contracts.getFromLocal('GenesisProtocol');
+
 const DxLockMgnForRep = Contracts.getFromLocal('DxLockMgnForRep');
 const DxGenAuction4Rep = Contracts.getFromLocal('DxGenAuction4Rep');
 const DxLockEth4Rep = Contracts.getFromLocal('DxLockEth4Rep');
@@ -55,6 +57,7 @@ const dxController = DxController.at(contracts.DxController);
 const dxAvatar = DxAvatar.at(contracts.DxAvatar);
 const dxReputation = DxReputation.at(contracts.DxReputation);
 const dxToken = DxToken.at(contracts.DxToken);
+const genesisProtocol = GenesisProtocol.at(contracts.GenesisProtocol);
 
 let schemes = {};
 schemes[contracts.schemes.DxLockMgnForRep] = DxLockMgnForRep.at(contracts.schemes.DxLockMgnForRep);  
@@ -90,16 +93,19 @@ async function main() {
   history.txs = history.txs.concat(DXdaoSnapshot.avatar.txs);
   history.txs = history.txs.concat(DXdaoSnapshot.reputation.txs);
   history.txs = history.txs.concat(DXdaoSnapshot.token.txs);
+  history.txs = history.txs.concat(DXdaoSnapshot.genesisProtocol.txs);
   
   history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.controller.internalTxs);
   history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.avatar.internalTxs);
   history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.reputation.internalTxs);
   history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.token.internalTxs);
+  history.internalTxs = history.internalTxs.concat(DXdaoSnapshot.genesisProtocol.internalTxs);
   
   history.events = history.events.concat(DXdaoSnapshot.controller.events);
   history.events = history.events.concat(DXdaoSnapshot.avatar.events);
   history.events = history.events.concat(DXdaoSnapshot.reputation.events);
   history.events = history.events.concat(DXdaoSnapshot.token.events);
+  history.events = history.events.concat(DXdaoSnapshot.genesisProtocol.events);
   
   for (var schemeAddress in DXdaoSnapshot.schemes) {
     if (DXdaoSnapshot.schemes.hasOwnProperty(schemeAddress)) {
@@ -130,15 +136,12 @@ async function main() {
     'CancelProposal'
   ];
   
-  _.remove(history.events, (historyEvent) => {
-    return historyEvent.returnValues._avatar && (historyEvent.returnValues._avatar != dxAvatar.address)
-  });
   history.events = _.sortBy(history.events, 'logIndex');
   history.events = _.sortBy(history.events, 'blockNumber');
 
   console.log('Total history txs:,', history.txs.length);
   console.log('Total history internal:,', history.internalTxs.length);
-  console.log('Total history events:,', history.events.length);
+  console.log('Total history events:', history.events.length);
   
   let registeredSchemes = [];
   let schemesActivePeriods = [];
@@ -169,7 +172,7 @@ async function main() {
     }
   });
   
-  console.log('Active schemes right now:\n', registeredSchemes);
+  console.log('Active schemes:\n', registeredSchemes);
 
   for (var i = 0; i < registeredSchemes.length; i++) {
     schemesActivePeriods.push({
@@ -207,36 +210,76 @@ async function main() {
       activeProposals: []
     };
   };
-  
+  let proposals = {};
   let activeProposals = [];
   history.events.forEach((historyEvent) => {
     if (createProposalEvents.indexOf(historyEvent.event) >= 0) {
-      activeProposals.push({
-        id: historyEvent.returnValues._proposalId,
+      
+      if (proposals[historyEvent.returnValues._proposalId])
+        console.error('Proposal', historyEvent.returnValues._proposalId,' already added !');
+      const proposalInfo = {
         contractName: schemes[historyEvent.address].schema.contractName,
         event: historyEvent,
         blockNumber: historyEvent.blockNumber,
+        txHash: historyEvent.transactionHash,
+        scheme: historyEvent.address,
         url: 'https://alchemy.daostack.io/dao/'+dxAvatar.address+'/proposal/'+historyEvent.returnValues._proposalId
-      });
-      schemesInfo[historyEvent.address].activeProposals.push({
-        id: historyEvent.returnValues._proposalId,
-        contractName: schemes[historyEvent.address].schema.contractName,
-        event: historyEvent,
-        blockNumber: historyEvent.blockNumber,
-        url: 'https://alchemy.daostack.io/dao/'+dxAvatar.address+'/proposal/'+historyEvent.returnValues._proposalId
-      });
+      };
+      
+      proposals[historyEvent.returnValues._proposalId] = proposalInfo;
+      activeProposals.push(historyEvent.returnValues._proposalId);
+      schemesInfo[historyEvent.address].activeProposals.push(historyEvent.returnValues._proposalId);
+      
     } else if (endProposalEvents.indexOf(historyEvent.event) >= 0) {
-      _.remove(activeProposals, function(p) {
-        if (p.id == historyEvent.returnValues._proposalId)
-          _.remove(schemesInfo[historyEvent.address].activeProposals, (sp) => sp.id == p.id)
-        return p.id == historyEvent.returnValues._proposalId
-      });
+      
+      if (activeProposals.indexOf(historyEvent.returnValues._proposalId) >= 0)
+        activeProposals.splice(activeProposals.indexOf(historyEvent.returnValues._proposalId), 1);
+      
+      if (schemesInfo[historyEvent.address].activeProposals.indexOf(historyEvent.returnValues._proposalId) >= 0)
+        schemesInfo[historyEvent.address].activeProposals.splice(schemesInfo[historyEvent.address].activeProposals
+          .indexOf(historyEvent.returnValues._proposalId), 1);
     }
   });
-
-  activeProposals = _.sortBy(activeProposals, 'blockNumber');
-  // console.log('Schemes info:\n', schemesInfo);
   
+  const ProposalState = ['None', 'ExpiredInQueue', 'Executed', 'Queued', 'PreBoosted', 'Boosted', 'QuietEndingPeriod']
+  const WinningVoteState = ['NONE', 'YES', 'NO'];
+  
+  function removeNumberKeys(object) {
+    for (var key in object) {
+      if (object.hasOwnProperty(key)) {
+        if (!isNaN(key)) delete object[key];
+      }
+    }
+    return JSON.parse(JSON.stringify(object));
+  }
+
+  for (var proposalId in proposals) {
+    if (proposals.hasOwnProperty(proposalId)) {
+      console.log('Getting information of proposal', proposalId);
+      proposals[proposalId].genesisProtocolData = removeNumberKeys(
+        await genesisProtocol.methods.proposals(proposalId).call()
+      );
+      proposals[proposalId].genesisProtocolData.state = ProposalState[
+        proposals[proposalId].genesisProtocolData.state
+      ];
+      proposals[proposalId].genesisProtocolData.winningVote = WinningVoteState[
+        proposals[proposalId].genesisProtocolData.winningVote
+      ];
+      if (schemes[proposals[proposalId].scheme].methods.organizationsProposals){
+        proposals[proposalId].schemeData = removeNumberKeys(
+          await schemes[proposals[proposalId].scheme].methods
+            .organizationsProposals(dxAvatar.address, proposalId).call()
+        );
+      } else if (schemes[proposals[proposalId].scheme].methods.organizationProposals) {
+        proposals[proposalId].schemeData = removeNumberKeys(
+          await schemes[proposals[proposalId].scheme].methods
+          .organizationProposals(proposalId).call()
+        );
+      }
+    }
+  }
+
+  console.log('Total proposals:\n', _.size(proposals));
   console.log('Total active proposals:\n', activeProposals.length);
   for (var schemeAddress in schemesInfo) {
     if (schemesInfo.hasOwnProperty(schemeAddress) && schemesInfo[schemeAddress].activeProposals.length > 0) {
@@ -244,7 +287,11 @@ async function main() {
     }
   }
   
-  // fs.writeFileSync('DXdaoSnapshot.json', JSON.stringify(DXdaoSnapshot, null, 2), {encoding:'utf8',flag:'w'});
+  DXdaoSnapshot.schemesInfo = schemesInfo;
+  DXdaoSnapshot.proposals = proposals;
+  DXdaoSnapshot.activeProposals = activeProposals;
+  
+  fs.writeFileSync('DXdaoSnapshot.json', JSON.stringify(DXdaoSnapshot, null, 2), {encoding:'utf8',flag:'w'});
 } 
 
 Promise.all([main()]).then(process.exit);

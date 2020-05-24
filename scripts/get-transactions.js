@@ -2,6 +2,7 @@ const fs = require('fs');
 const Web3 = require('web3');
 const { Contracts, ZWeb3 } = require('@openzeppelin/upgrades');
 const HDWalletProvider = require('truffle-hdwallet-provider');
+var _ = require('lodash');
 const args = process.argv;
 require('dotenv').config();
 const http = require('http');
@@ -42,6 +43,7 @@ const DxController = Contracts.getFromLocal('DxController');
 const DxAvatar = Contracts.getFromLocal('DxAvatar');
 const DxReputation = Contracts.getFromLocal('DxReputation');
 const DxToken = Contracts.getFromLocal('DxToken');
+const GenesisProtocol = Contracts.getFromLocal('GenesisProtocol');
 const DxLockMgnForRep = Contracts.getFromLocal('DxLockMgnForRep');
 const DxGenAuction4Rep = Contracts.getFromLocal('DxGenAuction4Rep');
 const DxLockEth4Rep = Contracts.getFromLocal('DxLockEth4Rep');
@@ -59,6 +61,7 @@ const logDecoder = new ethDecoder.default.LogDecoder(
     DxAvatar.schema.abi,
     DxReputation.schema.abi,
     DxToken.schema.abi,
+    GenesisProtocol.schema.abi,
     DxLockMgnForRep.schema.abi,
     DxGenAuction4Rep.schema.abi,
     DxLockEth4Rep.schema.abi,
@@ -77,6 +80,7 @@ const dxController = DxController.at(contracts.DxController);
 const dxAvatar = DxAvatar.at(contracts.DxAvatar);
 const dxReputation = DxReputation.at(contracts.DxReputation);
 const dxToken = DxToken.at(contracts.DxToken);
+const genesisProtocol = DxToken.at(contracts.GenesisProtocol);
 
 let schemes = {};
 schemes[contracts.schemes.DxLockMgnForRep] = DxLockMgnForRep.at(contracts.schemes.DxLockMgnForRep);  
@@ -113,6 +117,11 @@ const DXdaoSnapshotTemplate = {
     internalTxs: [],
     events: []
   },
+  genesisProtocol: {
+    txs: [],
+    internalTxs: [],
+    events: []
+  },
   schemes: {}
 };
 
@@ -122,11 +131,6 @@ if (fs.existsSync('./DXdaoSnapshot.json') && !reset)
   DXdaoSnapshot = Object.assign(DXdaoSnapshotTemplate, JSON.parse(fs.readFileSync('DXdaoSnapshot.json', 'utf-8')));
 
 async function main() {
-  
-  console.log('DxController', dxController.address);
-  console.log('DxAvatar', dxAvatar.address);
-  console.log('DxReputation', dxReputation.address);
-  console.log('DxToken', dxToken.address);
 
   // Set last confirmed block as toBlock
   
@@ -144,36 +148,29 @@ async function main() {
   
   console.log('Getting from block', fromBlock, 'to block', toBlock);
 
-  // function returns a Promise
-  function getPromise(url) {
-  	return new Promise((resolve, reject) => {
-  		http.get(url, (response) => {
-  			let chunks_of_data = [];
-
-  			response.on('data', (fragments) => {
-  				chunks_of_data.push(fragments);
-  			});
-
-  			response.on('end', () => {
-  				let response_body = Buffer.concat(chunks_of_data);
-  				resolve(response_body.toString());
-  			});
-
-  			response.on('error', (error) => {
-  				reject(error);
-  			});
-  		});
-  	});
-  }
-
-  // async function to make http request
   async function makeSynchronousRequest(url) {
   	try {
-  		let http_promise = getPromise(url);
+  		let http_promise = new Promise((resolve, reject) => {
+    		http.get(url, (response) => {
+    			let chunks_of_data = [];
+
+    			response.on('data', (fragments) => {
+    				chunks_of_data.push(fragments);
+    			});
+
+    			response.on('end', () => {
+    				let response_body = Buffer.concat(chunks_of_data);
+    				resolve(response_body.toString());
+    			});
+
+    			response.on('error', (error) => {
+    				reject(error);
+    			});
+    		});
+    	});
   		return JSON.parse(await http_promise).result;
   	}
   	catch(error) {
-  		// Promise rejected
   		console.error(error);
   	}
   }
@@ -240,6 +237,11 @@ async function main() {
   DXdaoSnapshot.reputation.txs = DXdaoSnapshot.reputation.txs.concat(transactionsFetched.txs)
   DXdaoSnapshot.reputation.internalTxs = DXdaoSnapshot.reputation.internalTxs.concat(transactionsFetched.internalTxs)
   
+  console.log('Getting txs from genesisProtocol..')
+  transactionsFetched = await getTransactions(genesisProtocol.address, fromBlock, toBlock);
+  DXdaoSnapshot.genesisProtocol.txs = DXdaoSnapshot.genesisProtocol.txs.concat(transactionsFetched.txs)
+  DXdaoSnapshot.genesisProtocol.internalTxs = DXdaoSnapshot.genesisProtocol.internalTxs.concat(transactionsFetched.internalTxs)
+  
   console.log('Getting events info for controller')
   DXdaoSnapshot.controller.events = DXdaoSnapshot.controller.events.concat( await dxController.getPastEvents(
     'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
@@ -254,6 +256,10 @@ async function main() {
   ));
   console.log('Getting events info for reputation')
   DXdaoSnapshot.reputation.events = DXdaoSnapshot.reputation.events.concat( await dxReputation.getPastEvents(
+    'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
+  ));
+  console.log('Getting events info for genesisProtocol')
+  DXdaoSnapshot.genesisProtocol.events = DXdaoSnapshot.genesisProtocol.events.concat( await genesisProtocol.getPastEvents(
     'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
   ));
   
@@ -272,6 +278,9 @@ async function main() {
         'allEvents', {fromBlock: fromBlock, toBlock: toBlock}
         )
       );
+      _.remove(DXdaoSnapshot.schemes[schemeAddress].events, (contractEvent) => {
+        return contractEvent.returnValues._avatar && (contractEvent.returnValues._avatar != dxAvatar.address)
+      });
     }
   }
   

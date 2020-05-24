@@ -121,6 +121,8 @@ Reputation: https://etherscan.io/address/0x7a927a93f221976aae26d5d077477307170f0
 
 Token: https://etherscan.io/address/0x643b14f6ea235668278da5974930105852f2b7c4
 
+Genesis Protocol: https://etherscan.io/address/0x332b8c9734b4097de50f302f7d9f273ffdb45b84
+
 ## Schemes 
 
 Creator account (Not active): https://etherscan.io/address/0x0a530100affb0a06edd2ed74e335afc50624f345
